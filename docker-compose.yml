@@ -1,0 +1,30 @@
+# Runs the Wavely backend + frontend. OpenWA is NOT included: run it separately
+# (see https://github.com/Deckasoft/OpenWA) and point OPENWA_URL at it.
+#
+#   cp backend/.env.example .env   # then edit values
+#   docker compose up --build
+services:
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      DB_PATH: /data/app.sqlite
+      # If OpenWA runs on the Docker host, use host.docker.internal (works on Docker Desktop;
+      # on Linux the extra_hosts entry below makes it work too).
+      OPENWA_URL: ${OPENWA_URL:-http://host.docker.internal:2785/api}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  app-data:
