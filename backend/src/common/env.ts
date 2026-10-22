@@ -20,3 +20,5 @@ export function webhookUrlFor(numberId: string): string {
   const base = requireEnv('PUBLIC_URL').replace(/\/$/, '');
   return `${base}/api/webhooks/openwa/${numberId}`;
 }
+
+

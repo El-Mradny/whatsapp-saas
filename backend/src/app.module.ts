@@ -11,6 +11,7 @@ import { CoreModule } from './core/core.module';
 import { ALL_ENTITIES } from './entities';
 import { InboxModule } from './messages/inbox.module';
 import { NumbersModule } from './numbers/numbers.module';
+import { TemplatesModule } from './templates/templates.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
@@ -33,6 +34,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     NumbersModule,
     ContactsModule,
     CampaignsModule,
+    TemplatesModule,
     InboxModule,
     WebhooksModule,
     AnalyticsModule,

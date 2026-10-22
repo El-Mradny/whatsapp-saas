@@ -1,9 +1,10 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth';
 
 const links = [
   ['/', 'Dashboard', '▦'],
   ['/campaigns', 'Campaigns', '➤'],
+  ['/templates', 'Templates', '📋'],
   ['/inbox', 'Inbox', '✉'],
   ['/contacts', 'Contacts', '☰'],
   ['/numbers', 'Numbers', '☎'],
@@ -12,6 +13,9 @@ const links = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const location = useLocation();
+  const isInbox = location.pathname.startsWith('/inbox');
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -35,7 +39,7 @@ export default function Layout() {
           </button>
         </div>
       </aside>
-      <main className="main">
+      <main className={`main${isInbox ? ' main-inbox' : ''}`}>
         <Outlet />
       </main>
     </div>

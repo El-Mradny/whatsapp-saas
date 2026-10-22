@@ -1,5 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react';
-import { FormEvent, useEffect, useState } from 'react';
+import { SubmitEvent , useEffect, useState } from 'react';
 import { api, WaNumber } from '../api';
 import { Empty, ErrorNote, Modal, NumberStatusBadge, useLoad, usePolling } from '../components/ui';
 
@@ -16,7 +16,7 @@ export default function Numbers() {
     async () => {
       if (!data) return;
       await Promise.all(data.filter((n) => n.status !== 'ready').map((n) => api.post(`/numbers/${n.id}/sync`).catch(() => null)));
-      reload(true);
+      await reload(true);
     },
     6000,
     pending,
@@ -27,7 +27,7 @@ export default function Numbers() {
     setActionErr(null);
     try {
       await api.del(`/numbers/${n.id}`);
-      reload(true);
+      await reload(true);
     } catch (e: any) {
       setActionErr(e.message);
     }
@@ -37,7 +37,7 @@ export default function Numbers() {
     setActionErr(null);
     try {
       await api.post(`/numbers/${n.id}/restart`);
-      reload(true);
+      await reload(true);
       setPairing(n);
     } catch (e: any) {
       setActionErr(e.message);
@@ -111,7 +111,7 @@ function AddNumber({ onClose, onCreated }: { onClose: () => void; onCreated: (n:
   const [label, setLabel] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: SubmitEvent ) => {
     e.preventDefault();
     setBusy(true);
     setErr(null);
@@ -187,7 +187,7 @@ function Settings({ number, onClose, onSaved }: { number: WaNumber; onClose: () 
   const [aiEnabled, setAi] = useState(number.aiEnabled);
   const [aiPrompt, setPrompt] = useState(number.aiPrompt ?? '');
   const [err, setErr] = useState<string | null>(null);
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: SubmitEvent ) => {
     e.preventDefault();
     try {
       await api.patch(`/numbers/${number.id}`, { label, aiEnabled, aiPrompt });

@@ -55,7 +55,7 @@ export class AiService {
   }
 
   private async openai(model: string, system: string, messages: any[]) {
-    const base = (process.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+    const base = (process.env.AI_BASE_URL).replace(/\/$/, '');
     const res = await fetch(`${base}/chat/completions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.AI_API_KEY}` },
@@ -65,4 +65,5 @@ export class AiService {
     const data: any = await res.json();
     return data.choices?.[0]?.message?.content ?? '';
   }
+
 }

@@ -40,7 +40,9 @@ export class NumbersService {
       await this.openwa.startSession(sessionId);
       await this.openwa.getQr(sessionId)
       // Signed webhook: OpenWA will HMAC every delivery with this per-number secret (X-OpenWA-Signature).
-      // await this.openwa.registerWebhook(sessionId, webhookUrlFor(number.id), webhookSecretFor(number.id));
+      console.log(`URL: ${webhookUrlFor(number.id)} \nSecret: ${webhookSecretFor(number.id)}`);
+      await this.openwa.registerWebhook(sessionId, webhookUrlFor(number.id), webhookSecretFor(number.id));
+
     } catch (e) {
       await this.repo.delete(number.id);
       await this.openwa.deleteSession(sessionId);

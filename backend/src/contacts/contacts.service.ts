@@ -78,7 +78,7 @@ export class ContactsService {
     } catch (e: any) {
       throw new BadRequestException(`Could not parse CSV: ${e.message}`);
     }
-    const existing = new Set((await this.repo.find({ where: { userId }, select: ['phone'] })).map((c) => c.phone));
+    const existing = new Set((await this.repo.find({ where: { userId }, select: { phone: true } })).map((c) => c.phone));
     const toSave: Contact[] = [];
     let skipped = 0;
     for (const r of records) {

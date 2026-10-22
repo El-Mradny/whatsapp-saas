@@ -16,8 +16,11 @@ async function bootstrap() {
   }
 
   const { AppModule } = await import('./app.module');
+  const { json, urlencoded } = await import('express');
   // rawBody: true keeps the exact request bytes, needed to verify OpenWA's HMAC webhook signature.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create(AppModule, { rawBody: true, bodyParser: false });
+  app.use(json({ limit: '25mb', verify: (req: any, _res: any, buf: Buffer) => { req.rawBody = buf; } }));
+  app.use(urlencoded({ limit: '25mb', extended: true }));
   app.setGlobalPrefix('api');
   app.enableCors({ origin: (process.env.FRONTEND_URL).split(','), credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

@@ -71,6 +71,7 @@ export interface Campaign {
   name: string;
   numberId: string;
   message: string;
+  mediaUrl?: string | null;
   status: 'draft' | 'scheduled' | 'running' | 'completed' | 'failed' | 'cancelled';
   scheduledAt: string | null;
   totalCount: number;
@@ -101,7 +102,30 @@ export interface Msg {
   direction: 'in' | 'out';
   source: 'manual' | 'campaign' | 'ai' | 'contact';
   body: string;
+  mediaUrl?: string | null;
   createdAt: string;
+}
+export type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION' | 'SUPPORT';
+export type TemplateHeaderType = 'none' | 'text' | 'image';
+
+export interface TemplateButton {
+  type: 'quick_reply' | 'url' | 'phone';
+  text: string;
+  value?: string;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  category: TemplateCategory;
+  language: string;
+  headerType: TemplateHeaderType;
+  headerContent?: string | null;
+  body: string;
+  footer?: string | null;
+  buttons?: TemplateButton[];
+  createdAt: string;
+  updatedAt: string;
 }
 export interface Overview {
   totals: {

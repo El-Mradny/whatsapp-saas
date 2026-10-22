@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { SubmitEvent , useState } from 'react';
 import { api, User } from '../api';
 import { useAuth } from '../auth';
 import { ErrorNote } from '../components/ui';
@@ -18,7 +18,7 @@ export default function Profile() {
   const [pwMsg, setPwMsg] = useState<string | null>(null);
   const [pwErr, setPwErr] = useState<string | null>(null);
 
-  const save = async (e: FormEvent) => {
+  const save = async (e: SubmitEvent ) => {
     e.preventDefault();
     setMsg(null);
     setErr(null);
@@ -30,7 +30,7 @@ export default function Profile() {
     }
   };
 
-  const changePw = async (e: FormEvent) => {
+  const changePw = async (e: SubmitEvent ) => {
     e.preventDefault();
     setPwMsg(null);
     setPwErr(null);

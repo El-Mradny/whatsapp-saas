@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api, Overview } from '../api';
 import { CampaignStatusBadge, Empty, ErrorNote, useLoad } from '../components/ui';
+import {useTranslation} from "react-i18next";
 
 const pct = (n: number | null) => (n === null ? '—' : `${n}%`);
 const axis = { fontSize: 12, fill: 'var(--muted)' };
@@ -11,13 +12,15 @@ const tipStyle = { background: 'var(--surface)', border: '1px solid var(--border
 export default function Dashboard() {
   const [days, setDays] = useState(14);
   const { data, error, loading } = useLoad(() => api.get<Overview>(`/analytics/overview?days=${days}`), [days]);
-  const t = data?.totals;
+  const total = data?.totals;
+
+  const { t } = useTranslation();
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Dashboard</h1>
+          <h1>{t('dashboard')}</h1>
           <p>How your messaging is performing.</p>
         </div>
         <select style={{ width: 160 }} value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Period">
@@ -30,21 +33,21 @@ export default function Dashboard() {
 
       {loading && !data ? (
         <div className="card"><Empty title="Loading…" /></div>
-      ) : data && t ? (
+      ) : data && total ? (
         <>
-          {t.numbers === 0 && (
+          {total.numbers === 0 && (
             <div className="notice">
               You haven’t connected a WhatsApp number yet. <Link to="/numbers">Connect one</Link> to start sending.
             </div>
           )}
           <div className="grid cols-4">
-            <Stat label="Connected numbers" value={`${t.connectedNumbers}/${t.numbers}`} />
-            <Stat label="Contacts" value={t.contacts.toLocaleString()} />
-            <Stat label="Campaign delivery" value={pct(t.deliveryRate)} sub={`${t.campaignMessagesSent} sent · ${t.campaignMessagesFailed} failed`} />
-            <Stat label="Scheduled campaigns" value={String(t.scheduledCampaigns)} sub={`${t.campaigns} total`} />
-            <Stat label="Messages received" value={t.messagesReceivedPeriod.toLocaleString()} sub={`last ${days} days`} />
-            <Stat label="AI replies" value={t.aiRepliesPeriod.toLocaleString()} sub={`last ${days} days`} />
-            <Stat label="Inbound handled by AI" value={pct(t.aiHandledRate)} />
+            <Stat label="Connected numbers" value={`${total.connectedNumbers}/${total.numbers}`} />
+            <Stat label="Contacts" value={total.contacts.toLocaleString()} />
+            <Stat label="Campaign delivery" value={pct(total.deliveryRate)} sub={`${total.campaignMessagesSent} sent · ${total.campaignMessagesFailed} failed`} />
+            <Stat label="Scheduled campaigns" value={String(total.scheduledCampaigns)} sub={`${total.campaigns} total`} />
+            <Stat label="Messages received" value={total.messagesReceivedPeriod.toLocaleString()} sub={`last ${days} days`} />
+            <Stat label="AI replies" value={total.aiRepliesPeriod.toLocaleString()} sub={`last ${days} days`} />
+            <Stat label="Inbound handled by AI" value={pct(total.aiHandledRate)} />
             <Stat label="Campaign messages (period)" value={data.outboundBySource.campaign.toLocaleString()} sub={`${data.outboundBySource.manual} manual`} />
           </div>
 

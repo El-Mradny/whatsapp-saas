@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
+import { ChangeEvent, SubmitEvent , useMemo, useState } from 'react';
 import { api, Contact } from '../api';
 import { Empty, ErrorNote, Modal, useLoad } from '../components/ui';
 
@@ -28,7 +28,7 @@ export default function Contacts() {
     try {
       await api.post('/contacts/bulk-delete', { ids: [...selected] });
       setSelected(new Set());
-      reload(true);
+      await reload(true);
     } catch (e: any) {
       setErr(e.message);
     }
@@ -111,7 +111,7 @@ function ContactForm({ contact, onClose, onSaved }: { contact: Contact | null; o
   const [notes, setNotes] = useState(contact?.notes ?? '');
   const [err, setErr] = useState<string | null>(null);
 
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: SubmitEvent ) => {
     e.preventDefault();
     const body = { name, phone, notes, tags: tags.split(',').map((t) => t.trim()).filter(Boolean) };
     try {

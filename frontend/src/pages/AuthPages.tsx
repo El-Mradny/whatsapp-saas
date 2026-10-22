@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, ReactNode, useState } from 'react';
+import { ChangeEvent, SubmitEvent , ReactNode, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { ErrorNote } from '../components/ui';
@@ -39,7 +39,7 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: SubmitEvent ) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
@@ -84,7 +84,7 @@ export function Register() {
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (e: ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
 
-  const submit = async (e: FormEvent) => {
+  const submit = async (e: SubmitEvent ) => {
     e.preventDefault();
     setBusy(true);
     setError(null);

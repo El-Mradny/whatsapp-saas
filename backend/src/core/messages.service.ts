@@ -19,6 +19,7 @@ export class MessagesService {
     number: WaNumber;
     phone: string;
     text: string;
+    mediaUrl?: string | null;
     source: MessageSource;
     campaignId?: string;
     contactName?: string;
@@ -28,7 +29,14 @@ export class MessagesService {
     if (opts.number.status !== 'ready') {
       throw new BadRequestException(`Number "${opts.number.label}" is not connected`);
     }
-    const externalId = await this.openwa.sendText(opts.number.sessionId, phone, opts.text);
+
+    let externalId: string | undefined;
+    if (opts.mediaUrl) {
+      externalId = await this.openwa.sendImage(opts.number.sessionId, phone, { url: opts.mediaUrl }, opts.text);
+    } else {
+      externalId = await this.openwa.sendText(opts.number.sessionId, phone, opts.text);
+    }
+
     return this.msgs.save(
       this.msgs.create({
         userId: opts.number.userId,
@@ -37,6 +45,7 @@ export class MessagesService {
         direction: 'out',
         source: opts.source,
         body: opts.text,
+        mediaUrl: opts.mediaUrl || null,
         contactName: opts.contactName,
         externalId,
         campaignId: opts.campaignId,
@@ -44,7 +53,7 @@ export class MessagesService {
     );
   }
 
-  async storeInbound(number: WaNumber, phone: string, body: string, name?: string, externalId?: string) {
+  async storeInbound(number: WaNumber, phone: string, body: string, name?: string, externalId?: string, mediaUrl?: string) {
     if (externalId && (await this.msgs.findOne({ where: { externalId, numberId: number.id } }))) return null;
     const contact = await this.contacts.findOne({ where: { userId: number.userId, phone } });
     return this.msgs.save(
@@ -55,6 +64,7 @@ export class MessagesService {
         direction: 'in',
         source: 'contact',
         body,
+        mediaUrl: mediaUrl || null,
         contactName: contact?.name ?? name,
         externalId,
       }),

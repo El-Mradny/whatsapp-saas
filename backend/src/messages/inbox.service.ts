@@ -1,16 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { Repository } from 'typeorm';
 import { normalizePhone } from '../common/phone';
 import { AiService } from '../core/ai.service';
 import { MessagesService } from '../core/messages.service';
 import { Contact, Message, WaNumber } from '../entities';
+import {OpenWaService} from "../core/openwa.service";
 
 export class ReplyDto {
   @IsString() numberId: string;
   @IsString() @MinLength(5) chatId: string;
-  @IsString() @MinLength(1) @MaxLength(4000) text: string;
+  @IsOptional() @IsString() @MaxLength(4000) text?: string;
+  @IsOptional() @IsString() mediaUrl?: string;
 }
 export class SuggestDto {
   @IsString() numberId: string;
@@ -25,6 +27,7 @@ export class InboxService {
     @InjectRepository(Contact) private contacts: Repository<Contact>,
     private messages: MessagesService,
     private ai: AiService,
+
   ) {}
 
   private async number(userId: string, id: string) {
@@ -40,7 +43,6 @@ export class InboxService {
       order: { createdAt: 'DESC' },
       take: 2000,
     });
-    console.log(rows);
     const map = new Map<string, any>();
     for (const m of rows) {
       const key = `${m.numberId}:${m.chatId}`;
@@ -50,7 +52,7 @@ export class InboxService {
           numberId: m.numberId,
           chatId: m.chatId,
           name: m.contactName || m.chatId,
-          lastMessage: m.body,
+          lastMessage: m.body || (m.mediaUrl ? '📷 Photo' : ''),
           lastDirection: m.direction,
           lastAt: m.createdAt,
           unanswered: m.direction === 'in',
@@ -63,7 +65,7 @@ export class InboxService {
   }
 
   async thread(userId: string, numberId: string, chatId: string) {
-    await this.number(userId, numberId);
+   await this.number(userId, numberId);
     return this.messages.history(numberId, normalizePhone(chatId), 200);
   }
 
@@ -71,7 +73,14 @@ export class InboxService {
     const number = await this.number(userId, dto.numberId);
     const phone = normalizePhone(dto.chatId);
     const contact = await this.contacts.findOne({ where: { userId, phone } });
-    return this.messages.sendAndStore({ number, phone, text: dto.text, source: 'manual', contactName: contact?.name });
+    return this.messages.sendAndStore({
+      number,
+      phone,
+      text: dto.text || '',
+      mediaUrl: dto.mediaUrl || null,
+      source: 'manual',
+      contactName: contact?.name,
+    });
   }
 
   /** Draft a reply with AI for the agent to review/edit before sending. */

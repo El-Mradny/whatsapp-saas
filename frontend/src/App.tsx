@@ -8,6 +8,8 @@ import Inbox from './pages/Inbox';
 import { Login, Register } from './pages/AuthPages';
 import Numbers from './pages/Numbers';
 import Profile from './pages/Profile';
+import Templates from './pages/Templates';
+import {JSX} from "react";
 
 function Protected({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
@@ -31,6 +33,7 @@ export default function App() {
         <Route path="numbers" element={<Numbers />} />
         <Route path="contacts" element={<Contacts />} />
         <Route path="campaigns" element={<Campaigns />} />
+        <Route path="templates" element={<Templates />} />
         <Route path="inbox" element={<Inbox />} />
         <Route path="profile" element={<Profile />} />
       </Route>

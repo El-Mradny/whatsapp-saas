@@ -61,6 +61,7 @@ export class Campaign {
   @Column({ default: 0 }) totalCount: number;
   @Column({ default: 0 }) sentCount: number;
   @Column({ default: 0 }) failedCount: number;
+  @Column({ type: 'text', nullable: true }) mediaUrl: string | null;
   @Column({ type: 'text', nullable: true }) lastError: string;
   @CreateDateColumn({ type: 'timestamptz' }) createdAt: Date;
 }
@@ -90,10 +91,37 @@ export class Message {
   @Column() direction: 'in' | 'out';
   @Column({ default: 'manual' }) source: MessageSource;
   @Column({ type: 'text' }) body: string;
+  @Column({ type: 'text', nullable: true }) mediaUrl: string | null;
   @Column({ nullable: true }) contactName: string;
   @Column({ nullable: true }) externalId: string;
   @Column({ nullable: true }) campaignId: string;
   @CreateDateColumn({ type: 'timestamptz' }) createdAt: Date;
 }
 
-export const ALL_ENTITIES = [User, WaNumber, Contact, Campaign, CampaignRecipient, Message];
+export type TemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION' | 'SUPPORT';
+export type TemplateHeaderType = 'none' | 'text' | 'image';
+
+export interface TemplateButton {
+  type: 'quick_reply' | 'url' | 'phone';
+  text: string;
+  value?: string;
+}
+
+@Entity('templates')
+export class Template {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Index() @Column() userId: string;
+  @Column() name: string;
+  @Column({ default: 'MARKETING' }) category: TemplateCategory;
+  @Column({ default: 'en' }) language: string;
+  @Column({ default: 'none' }) headerType: TemplateHeaderType;
+  @Column({ type: 'text', nullable: true }) headerContent: string | null;
+  @Column({ type: 'text' }) body: string;
+  @Column({ type: 'text', nullable: true }) footer: string | null;
+  @Column('simple-json', { nullable: true }) buttons: TemplateButton[];
+  @CreateDateColumn({ type: 'timestamptz' }) createdAt: Date;
+  @UpdateDateColumn({ type: 'timestamptz' }) updatedAt: Date;
+}
+
+export const ALL_ENTITIES = [User, WaNumber, Contact, Campaign, CampaignRecipient, Message, Template];
+

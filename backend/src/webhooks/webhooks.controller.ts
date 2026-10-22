@@ -66,7 +66,7 @@ export class WebhooksController {
     if (event.includes('message')) {
       const m = this.extract(data);
       if (m && !m.fromMe) {
-        const stored = await this.messages.storeInbound(number, m.phone, m.text, m.name, m.id);
+        const stored = await this.messages.storeInbound(number, m.phone, m.text, m.name, m.id, m.mediaUrl);
         if (stored && number.aiEnabled && this.ai.configured) {
           // Don't block the webhook response on the LLM
           void this.autoReply(number, m.phone, m.name).catch((e) => this.log.warn(`AI reply failed: ${e.message}`));
@@ -84,16 +84,19 @@ export class WebhooksController {
     return a.length === b.length && timingSafeEqual(a, b);
   }
 
-  private extract(d: any): { phone: string; text: string; name?: string; id?: string; fromMe: boolean } | null {
+  private extract(d: any): { phone: string; text: string; mediaUrl?: string; name?: string; id?: string; fromMe: boolean } | null {
     const from = String(d?.from ?? d?.chatId ?? d?.sender ?? '');
     if (!from || from.endsWith('@g.us') || from.includes('status@broadcast')) return null; // skip groups/status
-    const text = d?.body ?? d?.text ?? d?.content ?? d?.message?.text;
-    if (typeof text !== 'string' || !text.trim()) return null; // text only for now
+    const rawText = d?.body ?? d?.text ?? d?.content ?? d?.message?.text ?? d?.caption ?? '';
+    const text = typeof rawText === 'string' ? rawText : '';
+    const mediaUrl = d?.mediaUrl ?? d?.url ?? (d?.mimetype && d?.base64 ? `data:${d.mimetype};base64,${d.base64}` : undefined);
+    if (!text.trim() && !mediaUrl) return null;
     const phone = normalizePhone(from);
     if (!phone) return null;
     return {
       phone,
       text,
+      mediaUrl,
       name: d?.pushName ?? d?.notifyName ?? d?.senderName,
       id: d?.id?._serialized ?? (typeof d?.id === 'string' ? d.id : d?.messageId),
       fromMe: !!(d?.fromMe ?? d?.isFromMe),

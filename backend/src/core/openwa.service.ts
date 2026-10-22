@@ -118,6 +118,46 @@ export class OpenWaService {
     const mid = d?.id ?? d?.messageId ?? d?.key?.id;
     return mid && typeof mid === 'object' ? mid._serialized ?? mid.id : mid;
   }
+
+  async sendImage(
+    id: string,
+    phoneOrChatId: string,
+    image: { url?: string; base64?: string; mimetype?: string },
+    caption?: string,
+  ): Promise<string | undefined> {
+    const payload: any = {
+      chatId: toChatId(phoneOrChatId),
+    };
+    if (caption && caption.trim()) {
+      payload.caption = caption.trim();
+    }
+
+    if (image.base64) {
+      payload.base64 = image.base64;
+      payload.mimetype = image.mimetype || 'image/jpeg';
+    } else if (image.url) {
+      const match = image.url.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/s);
+      if (match) {
+        payload.mimetype = match[1];
+        payload.base64 = match[2];
+      } else {
+        payload.url = image.url;
+      }
+    }
+
+    const d = this.unwrap(
+      await this.call('post', `/sessions/${encodeURIComponent(id)}/messages/send-image`, payload),
+    );
+    const mid = d?.id ?? d?.messageId ?? d?.key?.id;
+    return mid && typeof mid === 'object' ? mid._serialized ?? mid.id : mid;
+  }
+
+  async getMessageHistory(sessionId: string) {
+    const res = this.unwrap(
+        await this.call('get', `/sessions/${encodeURIComponent(sessionId)}/messages`)
+    )
+    return res.messages ?? [];
+  }
 }
 
 /** Shared by the REST poller and the session.status webhook so both interpret statuses identically. */
@@ -134,3 +174,6 @@ export function extractPhone(d: any): string | undefined {
   const digits = p ? String(p).split('@')[0].replace(/\D/g, '') : '';
   return digits || undefined;
 }
+
+
+

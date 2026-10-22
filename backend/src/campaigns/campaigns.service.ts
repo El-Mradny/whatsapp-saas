@@ -22,7 +22,9 @@ export class CreateCampaignDto {
   @IsString() @MinLength(2) @MaxLength(100) name: string;
   @IsString() numberId: string;
   /** Supports {{name}} placeholder */
-  @IsString() @MinLength(1) @MaxLength(4000) message: string;
+  @IsOptional() @IsString() @MaxLength(4000) message?: string;
+  /** Optional image URL or base64 data-URL */
+  @IsOptional() @IsString() mediaUrl?: string;
   /** Explicit contact selection */
   @IsOptional() @IsArray() @IsString({ each: true }) contactIds?: string[];
   /** Or: all contacts having ANY of these tags. If neither is given, all contacts are targeted. */
@@ -91,7 +93,8 @@ export class CampaignsService implements OnModuleInit {
         userId,
         name: dto.name,
         numberId: number.id,
-        message: dto.message,
+        message: dto.message || '',
+        mediaUrl: dto.mediaUrl || null,
         delaySeconds: dto.delaySeconds ?? 8,
         totalCount: targets.length,
         status: scheduled ? 'scheduled' : 'draft',
@@ -177,12 +180,13 @@ export class CampaignsService implements OnModuleInit {
         const fresh = await this.campaigns.findOne({ where: { id } });
         if (!fresh || fresh.status !== 'running') return;
 
-        const text = campaign.message.replace(/\{\{\s*name\s*\}\}/gi, r.name.split(' ')[0] || r.name);
+        const text = (campaign.message || '').replace(/\{\{\s*name\s*\}\}/gi, r.name.split(' ')[0] || r.name);
         try {
           await this.messages.sendAndStore({
             number,
             phone: r.phone,
             text,
+            mediaUrl: campaign.mediaUrl || undefined,
             source: 'campaign',
             campaignId: id,
             contactName: r.name,

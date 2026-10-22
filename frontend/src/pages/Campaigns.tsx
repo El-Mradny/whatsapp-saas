@@ -1,6 +1,7 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { api, Campaign, Contact, Recipient, WaNumber } from '../api';
+import { ChangeEvent, SubmitEvent, useMemo, useRef, useState } from 'react';
+import { api, Campaign, Contact, Recipient, Template, WaNumber } from '../api';
 import { CampaignStatusBadge, Empty, ErrorNote, fmtDate, Modal, toLocalInput, useLoad, usePolling } from '../components/ui';
+import { formatWhatsAppText, WhatsAppToolbar } from '../components/WhatsAppComposer';
 
 export default function Campaigns() {
   const { data, error, loading, reload } = useLoad(() => api.get<Campaign[]>('/campaigns'));
@@ -16,7 +17,7 @@ export default function Campaigns() {
       <div className="page-head">
         <div>
           <h1>Campaigns</h1>
-          <p>Send a message to many contacts now or schedule it for later.</p>
+          <p>Send a message and photo to many contacts now or schedule it for later.</p>
         </div>
         <button className="btn primary" onClick={() => setCreating(true)}>+ New campaign</button>
       </div>
@@ -30,7 +31,7 @@ export default function Campaigns() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Name</th><th>Status</th><th>Audience</th><th>Progress</th><th>Scheduled for</th></tr></thead>
+              <thead><tr><th>Name</th><th>Status</th><th>Media</th><th>Audience</th><th>Progress</th><th>Scheduled for</th></tr></thead>
               <tbody>
                 {data.map((c) => {
                   const done = c.sentCount + c.failedCount;
@@ -38,6 +39,13 @@ export default function Campaigns() {
                     <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => setOpenId(c.id)}>
                       <td style={{ fontWeight: 600 }}>{c.name}</td>
                       <td><CampaignStatusBadge status={c.status} /></td>
+                      <td>
+                        {c.mediaUrl ? (
+                          <span className="badge info" title="Includes photo">📷 Image</span>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
                       <td className="mono">{c.totalCount}</td>
                       <td>
                         <div className="row">
@@ -64,9 +72,14 @@ export default function Campaigns() {
 function CreateCampaign({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const numbers = useLoad(() => api.get<WaNumber[]>('/numbers'));
   const contacts = useLoad(() => api.get<Contact[]>('/contacts'));
+  const templates = useLoad(() => api.get<Template[]>('/templates'));
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [name, setName] = useState('');
   const [numberId, setNumberId] = useState('');
-  const [message, setMessage] = useState('Hi {{name}}, ');
+  const [message, setMessage] = useState('Hi *{{name}}*, 👋 ');
+  const [mediaUrl, setMediaUrl] = useState('');
+  const [imageTab, setImageTab] = useState<'upload' | 'url'>('upload');
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [audience, setAudience] = useState<'all' | 'tags'>('all');
   const [tags, setTags] = useState<string[]>([]);
   const [when, setWhen] = useState<'now' | 'later'>('now');
@@ -75,6 +88,9 @@ function CreateCampaign({ onClose, onCreated }: { onClose: () => void; onCreated
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const connected = (numbers.data ?? []).filter((n) => n.status === 'ready');
   const allTags = useMemo(() => [...new Set((contacts.data ?? []).flatMap((c) => c.tags ?? []))].sort(), [contacts.data]);
   const audienceSize = useMemo(() => {
@@ -82,7 +98,53 @@ function CreateCampaign({ onClose, onCreated }: { onClose: () => void; onCreated
     return audience === 'all' ? all.length : all.filter((c) => (c.tags ?? []).some((t) => tags.includes(t))).length;
   }, [contacts.data, audience, tags]);
 
-  const submit = async (e: FormEvent) => {
+  const applyTemplate = (tplId: string) => {
+    setSelectedTemplateId(tplId);
+    const tpl = (templates.data ?? []).find((t) => t.id === tplId);
+    if (!tpl) return;
+    if (!name.trim()) setName(tpl.name);
+    if (tpl.headerType === 'image' && tpl.headerContent) {
+      setMediaUrl(tpl.headerContent);
+    }
+    let fullMessage = '';
+    if (tpl.headerType === 'text' && tpl.headerContent) {
+      fullMessage += `*${tpl.headerContent}*\n\n`;
+    }
+    fullMessage += tpl.body;
+    if (tpl.footer) {
+      fullMessage += `\n\n_${tpl.footer}_`;
+    }
+    setMessage(fullMessage);
+  };
+
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (JPG, PNG, WebP, etc.)');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setUploadError('Image size exceeds 15MB limit.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setMediaUrl(reader.result);
+      }
+    };
+    reader.onerror = () => {
+      setUploadError('Failed to read image file');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const submit = async (e: SubmitEvent) => {
     e.preventDefault();
     setBusy(true);
     setErr(null);
@@ -91,6 +153,7 @@ function CreateCampaign({ onClose, onCreated }: { onClose: () => void; onCreated
         name,
         numberId: numberId || connected[0]?.id,
         message,
+        mediaUrl: mediaUrl.trim() || undefined,
         delaySeconds: delay,
         tags: audience === 'tags' ? tags : undefined,
         scheduledAt: when === 'later' ? new Date(scheduledAt).toISOString() : undefined,
@@ -110,8 +173,33 @@ function CreateCampaign({ onClose, onCreated }: { onClose: () => void; onCreated
       <form className="stack" onSubmit={submit}>
         <ErrorNote error={err} />
         {numbers.data && !connected.length && <div className="notice">You need a connected WhatsApp number first. Add one under Numbers.</div>}
+
+        {/* Template Selector Banner */}
+        {!!templates.data?.length && (
+          <div className="card attachment-card" style={{ background: 'var(--brand-soft)', borderColor: 'var(--brand)', padding: '10px 14px' }}>
+            <div className="row spread">
+              <div>
+                <b style={{ color: 'var(--brand)', fontSize: 13 }}>📋 Load from Template</b>
+                <div className="hint">Quickly populate header, message body, and footer from a pre-made template.</div>
+              </div>
+              <select
+                style={{ width: 220 }}
+                value={selectedTemplateId}
+                onChange={(e) => applyTemplate(e.target.value)}
+              >
+                <option value="">Select a template…</option>
+                {templates.data.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
         <div className="grid cols-2">
-          <label className="field">Campaign name<input required autoFocus value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <label className="field">Campaign name<input required autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Autumn Promo" /></label>
           <label className="field">
             Send from
             <select value={numberId || connected[0]?.id || ''} onChange={(e) => setNumberId(e.target.value)} required>
@@ -120,11 +208,140 @@ function CreateCampaign({ onClose, onCreated }: { onClose: () => void; onCreated
           </label>
         </div>
 
-        <label className="field">
-          Message <span className="hint">Use {'{{name}}'} to insert the contact’s first name</span>
-          <textarea required rows={5} value={message} onChange={(e) => setMessage(e.target.value)} />
-        </label>
-        <div className="muted" style={{ fontSize: 13 }}>Preview: <i>{preview}</i></div>
+        {/* Image Attachment Section */}
+        <div className="card attachment-card">
+          <div className="row spread" style={{ marginBottom: 10 }}>
+            <div>
+              <span style={{ fontWeight: 600, fontSize: 13.5 }}>📷 Attach Image (Optional)</span>
+              <p className="hint" style={{ margin: '2px 0 0' }}>Send a photo banner, product flyer, or announcement along with your campaign.</p>
+            </div>
+            <div className="row">
+              <button
+                type="button"
+                className={`btn sm ${imageTab === 'upload' ? 'primary' : ''}`}
+                onClick={() => setImageTab('upload')}
+              >
+                Upload file
+              </button>
+              <button
+                type="button"
+                className={`btn sm ${imageTab === 'url' ? 'primary' : ''}`}
+                onClick={() => setImageTab('url')}
+              >
+                Image URL
+              </button>
+            </div>
+          </div>
+
+          <ErrorNote error={uploadError} />
+
+          {imageTab === 'upload' ? (
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={handleFileUpload}
+              />
+              {!mediaUrl ? (
+                <div
+                  className="upload-dropzone"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file && file.type.startsWith('image/')) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        if (typeof reader.result === 'string') setMediaUrl(reader.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: 28, display: 'block', marginBottom: 4 }}>🖼️</span>
+                  <b>Click to choose or drag & drop an image</b>
+                  <span className="hint">PNG, JPG, WebP or GIF up to 15MB</span>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="field">
+              <input
+                type="url"
+                placeholder="https://example.com/promo-banner.jpg"
+                value={mediaUrl}
+                onChange={(e) => setMediaUrl(e.target.value)}
+              />
+            </div>
+          )}
+
+          {mediaUrl && (
+            <div className="image-preview-bar">
+              <img src={mediaUrl} alt="Campaign attachment" className="image-thumb" />
+              <div className="grow">
+                <b>Image Attached</b>
+                <div className="hint">Will be delivered to WhatsApp recipients with your message.</div>
+              </div>
+              <button
+                type="button"
+                className="btn sm danger"
+                onClick={() => {
+                  setMediaUrl('');
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+              >
+                ✕ Remove image
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Message and WhatsApp Toolbar */}
+        <div className="field">
+          <div className="row spread">
+            <span style={{ fontWeight: 600, fontSize: 13.5 }}>Campaign Message</span>
+            <span className="hint">Use {'{{name}}'} to insert the contact’s first name</span>
+          </div>
+
+          <WhatsAppToolbar
+            textareaRef={textareaRef}
+            text={message}
+            setText={setMessage}
+            showVariable
+            variableName="{{name}}"
+          />
+
+          <textarea
+            ref={textareaRef}
+            required
+            rows={5}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Write your campaign text here… Click Bold (*B*) or Emoji to format."
+          />
+        </div>
+
+        {/* WhatsApp Preview Card */}
+        <div className="wa-preview-card">
+          <div className="wa-preview-head">
+            <span>WhatsApp Message Preview</span>
+            <span className="badge ok">Live Preview</span>
+          </div>
+          <div className="wa-preview-bubble">
+            {mediaUrl && (
+              <div className="wa-preview-image-wrap">
+                <img src={mediaUrl} alt="Preview" className="wa-preview-image" />
+              </div>
+            )}
+            <div className="wa-preview-text">
+              {formatWhatsAppText(preview) || <span className="muted">Type a message above…</span>}
+            </div>
+            <div className="wa-preview-time mono">12:00 PM · Delivered ✓✓</div>
+          </div>
+        </div>
 
         <div className="grid cols-2">
           <div className="field">
@@ -184,7 +401,7 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
     setErr(null);
     try {
       await (method === 'post' ? api.post(`/campaigns/${id}${path}`) : api.del(`/campaigns/${id}`));
-      method === 'del' ? onClose() : reload(true);
+      method === 'del' ? onClose() : await reload(true);
     } catch (e: any) {
       setErr(e.message);
     }
@@ -207,7 +424,21 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
             </div>
             {c.scheduledAt && c.status === 'scheduled' && <div className="notice">Scheduled for {fmtDate(c.scheduledAt)}</div>}
             {c.lastError && <div className="error">Last error: {c.lastError}</div>}
-            <div className="card" style={{ background: 'var(--bg)', whiteSpace: 'pre-wrap' }}>{c.message}</div>
+
+            {c.mediaUrl && (
+              <div className="card" style={{ padding: 12, background: 'var(--bg)', textAlign: 'center' }}>
+                <img
+                  src={c.mediaUrl}
+                  alt={c.name}
+                  style={{ maxHeight: 260, maxWidth: '100%', borderRadius: 8, display: 'inline-block', objectFit: 'contain' }}
+                />
+              </div>
+            )}
+
+            <div className="card" style={{ background: 'var(--bg)', whiteSpace: 'pre-wrap' }}>
+              {formatWhatsAppText(c.message)}
+            </div>
+
             <div className="card flush" style={{ maxHeight: 320, overflowY: 'auto' }}>
               <table>
                 <thead><tr><th>Recipient</th><th>Phone</th><th>Status</th></tr></thead>
@@ -232,3 +463,4 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
     </Modal>
   );
 }
+
